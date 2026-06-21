@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Invoice, InvoiceLine } from "@/lib/invoice";
 
 type Usage = { input_tokens: number; output_tokens: number };
@@ -25,6 +25,9 @@ const formatSize = (b: number) =>
 
 // Opus 4.8 pricing: $5 / 1M input, $25 / 1M output
 const costOf = (u: Usage) => (u.input_tokens / 1e6) * 5 + (u.output_tokens / 1e6) * 25;
+
+const numCellClass =
+  "w-full border-none bg-transparent px-2 py-[11px] text-right font-mono text-sm text-ink outline-none transition hover:bg-bg focus:rounded-sm focus:bg-accentsoft focus:outline-2 focus:-outline-offset-2 focus:outline-accent";
 
 // Map raw server error → friendly title + body
 function classifyError(msg: string): { title: string; body: string } {
@@ -110,10 +113,9 @@ export default function Home() {
     }
   }, [base64, mediaType]);
 
-  const updateLine = (i: number, key: keyof InvoiceLine, value: string) => {
+  const updateLine = (i: number, key: keyof InvoiceLine, value: string | number) => {
     if (!invoice) return;
-    const next = key === "description" ? value : Number(value) || 0;
-    const line_items = invoice.line_items.map((l, idx) => (idx === i ? { ...l, [key]: next } : l));
+    const line_items = invoice.line_items.map((l, idx) => (idx === i ? { ...l, [key]: value } : l));
     setInvoice({ ...invoice, line_items });
   };
 
@@ -310,8 +312,8 @@ export default function Home() {
                   {computed.lines.map((line, i) => (
                     <div key={i} className="group relative grid grid-cols-[2.6fr_0.6fr_1fr_1fr] border-b border-line">
                       <CellInput value={invoice.line_items[i].description} sans onChange={(v) => updateLine(i, "description", v)} />
-                      <CellInput value={String(invoice.line_items[i].quantity)} right onChange={(v) => updateLine(i, "quantity", v)} />
-                      <CellInput value={String(invoice.line_items[i].unit_price)} right onChange={(v) => updateLine(i, "unit_price", v)} />
+                      <NumberCell value={invoice.line_items[i].quantity} onCommit={(n) => updateLine(i, "quantity", n)} className={numCellClass} />
+                      <NumberCell value={invoice.line_items[i].unit_price} onCommit={(n) => updateLine(i, "unit_price", n)} className={numCellClass} />
                       <div className="px-2 py-[11px] text-right font-mono text-sm text-ink2">{fmt(line.amount)}</div>
                       <button onClick={() => removeLine(i)} className="absolute -right-6 top-1/2 hidden -translate-y-1/2 font-mono text-sm text-muted opacity-0 transition hover:text-error group-hover:opacity-100 md:block" aria-label="Remove line">✕</button>
                     </div>
@@ -325,8 +327,8 @@ export default function Home() {
                     <div key={i} className="mb-2.5 rounded-lg border border-line p-3">
                       <input value={invoice.line_items[i].description} onChange={(e) => updateLine(i, "description", e.target.value)} className="w-full border-none bg-transparent pb-2.5 font-sans text-sm font-semibold text-ink outline-none focus:text-accent" />
                       <div className="grid grid-cols-3 gap-2 border-t border-line pt-2.5">
-                        <MobileCell label="QTY" value={String(invoice.line_items[i].quantity)} onChange={(v) => updateLine(i, "quantity", v)} />
-                        <MobileCell label="UNIT" value={String(invoice.line_items[i].unit_price)} onChange={(v) => updateLine(i, "unit_price", v)} />
+                        <MobileCell label="QTY" value={invoice.line_items[i].quantity} onCommit={(n) => updateLine(i, "quantity", n)} />
+                        <MobileCell label="UNIT" value={invoice.line_items[i].unit_price} onCommit={(n) => updateLine(i, "unit_price", n)} />
                         <div>
                           <div className="mb-0.5 font-mono text-[9px] text-muted">AMOUNT</div>
                           <div className="p-1.5 font-mono text-[13px] text-ink2">{fmt(line.amount)}</div>
@@ -437,12 +439,42 @@ function CellInput({ value, right, sans, onChange }: { value: string; right?: bo
   );
 }
 
-function MobileCell({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function MobileCell({ label, value, onCommit }: { label: string; value: number; onCommit: (n: number) => void }) {
   return (
     <div>
       <div className="mb-0.5 font-mono text-[9px] text-muted">{label}</div>
-      <input value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-md border border-line bg-white p-1.5 font-mono text-[13px] outline-none focus:-outline-offset-1 focus:bg-accentsoft focus:outline-2 focus:outline-accent" />
+      <NumberCell value={value} onCommit={onCommit} className="w-full rounded-md border border-line bg-white p-1.5 font-mono text-[13px] outline-none focus:-outline-offset-1 focus:bg-accentsoft focus:outline-2 focus:outline-accent" />
     </div>
+  );
+}
+
+// Numeric cell that keeps the raw typed string (so "62." and "62.50" survive)
+// while committing a parsed number for calculations.
+function NumberCell({ value, onCommit, className }: { value: number; onCommit: (n: number) => void; className?: string }) {
+  const [draft, setDraft] = useState(String(value));
+  const last = useRef(value);
+  useEffect(() => {
+    if (value !== last.current) {
+      setDraft(String(value));
+      last.current = value;
+    }
+  }, [value]);
+  return (
+    <input
+      value={draft}
+      inputMode="decimal"
+      onChange={(e) => {
+        const v = e.target.value;
+        if (!/^-?\d*\.?\d*$/.test(v)) return; // digits + at most one dot
+        setDraft(v);
+        const n = v === "" || v === "." || v === "-" || v === "-." ? 0 : Number(v);
+        if (Number.isFinite(n)) {
+          last.current = n;
+          onCommit(n);
+        }
+      }}
+      className={className}
+    />
   );
 }
 
