@@ -392,8 +392,6 @@ export default function Home() {
   );
 }
 
-/* ── building blocks ─────────────────────────────────────────── */
-
 function StageLabel({ n, label }: { n: string; label: string }) {
   return (
     <div className="mb-3.5 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">

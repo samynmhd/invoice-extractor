@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* "Direction D — editorial" design tokens (maps 1:1 to the hi-fi spec) */
 @theme {
   --color-bg: #faf9f6;
   --color-board: #e7e5df;
@@ -27,8 +26,7 @@
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 }
 
-/* Force light rendering — this is a light editorial theme; never inherit the
-   browser's dark-mode canvas/text defaults. */
+/* Light theme — don't inherit the browser's dark-mode defaults. */
 html {
   color-scheme: light;
 }
