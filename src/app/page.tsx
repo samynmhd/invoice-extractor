@@ -167,14 +167,14 @@ export default function Home() {
   const copyJson = () => navigator.clipboard?.writeText(jsonString);
 
   const status = error
-    ? { label: "extraction failed", color: "var(--color-error)", pulse: false }
+    ? { label: "extraction failed", short: "failed", color: "var(--color-error)", pulse: false }
     : loading
-      ? { label: "extracting", color: "var(--color-accent)", pulse: true }
+      ? { label: "extracting", short: "extracting", color: "var(--color-accent)", pulse: true }
       : invoice
-        ? { label: `extracted · ${invoice.line_items.length} line items`, color: "var(--color-success)", pulse: false }
+        ? { label: `extracted · ${invoice.line_items.length} line items`, short: "done", color: "var(--color-success)", pulse: false }
         : dragging
-          ? { label: "drop detected", color: "var(--color-accent)", pulse: false }
-          : { label: "idle", color: "#c9c5bb", pulse: false };
+          ? { label: "drop detected", short: "drop", color: "var(--color-accent)", pulse: false }
+          : { label: "idle", short: "idle", color: "#c9c5bb", pulse: false };
 
   const cur = invoice?.currency?.trim();
 
@@ -199,7 +199,8 @@ export default function Home() {
               <span className="hidden sm:inline">structured extraction · v2</span>
               <span className="flex items-center gap-2 rounded-full border border-line px-3 py-1 text-ink2">
                 <span className="h-[7px] w-[7px] rounded-full" style={{ background: status.color, animation: status.pulse ? "ie-pulse 1.1s ease-in-out infinite" : undefined }} />
-                {status.label}
+                <span className="sm:hidden">{status.short}</span>
+                <span className="hidden sm:inline">{status.label}</span>
               </span>
             </div>
           </header>
