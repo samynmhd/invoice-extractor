@@ -1,26 +1,53 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* "Direction D — editorial" design tokens (maps 1:1 to the hi-fi spec) */
+@theme {
+  --color-bg: #faf9f6;
+  --color-board: #e7e5df;
+  --color-surface: #ffffff;
+  --color-sunken: #f3f1ea;
+  --color-line: #e4e1d9;
+  --color-rule: #1c1c1a;
+  --color-ink: #1c1c1a;
+  --color-ink2: #6b675f;
+  --color-muted: #8a857b;
+  --color-accent: #c2410c;
+  --color-accent2: #a8370a;
+  --color-accentsoft: #fbf4ef;
+  --color-error: #b3372a;
+  --color-errorsoft: #fbf0ee;
+  --color-errorline: #e6c4be;
+  --color-errorink: #7a4540;
+  --color-success: #1f7a4d;
+  --color-jsonbg: #17171a;
+  --color-jsonink: #e8e5dd;
+  --color-jsondim: #7c7869;
+
+  --font-sans: var(--font-archivo), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Force light rendering — this is a light editorial theme; never inherit the
+   browser's dark-mode canvas/text defaults. */
+html {
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+@keyframes ie-spin { to { transform: rotate(360deg); } }
+@keyframes ie-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes ie-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@keyframes ie-prog { 0% { left: -40%; } 100% { left: 100%; } }
+@keyframes ie-caret { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-board);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* shimmer skeleton helper */
+.ie-shimmer {
+  background: linear-gradient(90deg, #efece4, #f7f5ef, #efece4);
+  background-size: 200% 100%;
+  animation: ie-shimmer 1.4s linear infinite;
 }
