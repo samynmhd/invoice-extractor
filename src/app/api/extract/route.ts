@@ -1,12 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { checkBotId } from "botid/server";
 import { INVOICE_SCHEMA, type Invoice } from "@/lib/invoice";
-
-// This route is the whole "AI" of the demo: one Claude call with vision +
-// Structured Outputs. The same pattern, hardened with a polling worker,
-// retries, and multi-tenant storage, is what ships into a production SaaS.
+import { getRatelimit, clientIp } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+// Reject base64 payloads whose decoded size exceeds ~4 MB (base64 ≈ 4/3 of bytes).
+const MAX_BYTES = 4 * 1024 * 1024;
 
 type ExtractRequest = {
   data: string; // base64 (no data: prefix)
@@ -16,6 +17,25 @@ type ExtractRequest = {
 const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 
 export async function POST(request: Request) {
+  // 1. Reject automated traffic before spending anything.
+  const verification = await checkBotId();
+  if (verification.isBot) {
+    return Response.json({ error: "Automated traffic is not allowed." }, { status: 403 });
+  }
+
+  // 2. Per-IP rate limit (active once the Upstash store is connected).
+  const limiter = getRatelimit();
+  if (limiter) {
+    const { success, reset } = await limiter.limit(clientIp(request));
+    if (!success) {
+      const retry = Math.max(1, Math.ceil((reset - Date.now()) / 1000));
+      return Response.json(
+        { error: `Too many requests. Try again in ${retry}s.` },
+        { status: 429, headers: { "retry-after": String(retry) } },
+      );
+    }
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return Response.json(
@@ -40,6 +60,10 @@ export async function POST(request: Request) {
       { error: `Unsupported type "${mediaType}". Use PNG, JPEG, WebP, GIF, or PDF.` },
       { status: 400 },
     );
+  }
+  // Enforce the size limit server-side too — the client check can be bypassed.
+  if (Math.floor((data.length * 3) / 4) > MAX_BYTES) {
+    return Response.json({ error: "File exceeds the 4 MB limit." }, { status: 413 });
   }
 
   const client = new Anthropic({ apiKey });
