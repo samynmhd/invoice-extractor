@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Invoice → JSON
 
-## Getting Started
+Upload an invoice or receipt (image or PDF) and get back **structured line items** —
+vendor, invoice number, date, per-item quantity/price/amount, and totals — that you can
+edit inline and export as JSON.
 
-First, run the development server:
+The extraction is a single **Claude Opus 4.8** call using **vision + Structured Outputs**,
+so the model is constrained to a JSON schema and the result needs no brittle text-parsing.
+
+> This is a clean, standalone demo of a pattern I deploy into production SaaS. In a real
+> product I wrap this call with multi-tenant storage + row-level security, a background
+> polling worker (so capture and OCR are decoupled), retry/idempotency, and a
+> categorization/canonicalization pass over the extracted items. **All sample data here is
+> synthetic — no client data or credentials.**
+
+## Stack
+
+- **Next.js 16** (App Router, Route Handler for the API)
+- **Claude Opus 4.8** via the official `@anthropic-ai/sdk` — vision + `output_config.format`
+- **Tailwind CSS**, TypeScript
+- Deploys to **Vercel** with one environment variable
+
+## Run locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.local.example .env.local   # then paste your Anthropic API key
+npm run dev                        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Get a key at https://console.anthropic.com/. Click **"load a sample invoice"** to try it
+without uploading anything.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How it works
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+Browser ──(base64 image/PDF)──▶ /api/extract (Route Handler)
+                                     │  one client.messages.create() call:
+                                     │  • image/document content block
+                                     │  • output_config.format = INVOICE_SCHEMA
+                                     ▼
+                                 Claude Opus 4.8 (vision)
+                                     │  returns JSON validated against the schema
+                                     ▼
+Browser ◀──(structured Invoice)── editable table + JSON export
+```
 
-## Learn More
+- `src/lib/invoice.ts` — the shared `Invoice` type and the JSON schema Claude is bound to.
+- `src/app/api/extract/route.ts` — the extraction call (the whole "AI" of the app).
+- `src/app/page.tsx` — upload, preview, editable results, JSON export.
+- `scripts/make-sample.mjs` — regenerates the synthetic sample PDF.
 
-To learn more about Next.js, take a look at the following resources:
+## Deploy
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Push to GitHub, import into Vercel, set `ANTHROPIC_API_KEY` in project env vars, deploy.
